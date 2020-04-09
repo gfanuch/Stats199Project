@@ -1,0 +1,129 @@
+---
+title: "Stats199_Week5"
+author: "Gabriel Fanucchi"
+date: "11/1/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Week 5: More on Recurrence and an Introduction to Networks
+
+There are two approaches to finding a complex network from a nonlinear time series. One approach is from a recurrence matrix, which we can use as our adjacency matrix to construct a network, and the other is through k-nearest neighbors. First, let's continue our discussion on recurrence.
+
+## Recurrence Quantification Analysis (RQA)
+
+A method to quantify recurrence plots is by using RQA. Here, we have a very simple numeric series:
+$$0,0,1,0,0,0,0,0,1,0$$
+The code below is sourced from [4]:
+
+```{r}
+library(nonlinearTseries)
+y <- numeric()
+y <- c(0,0,1,0,0,0,0,0,1,0)
+eps <- 0.01
+require(nonlinearTseries)
+rqa.analysis = rqa(time.series=y,embedding.dim=1,timelag=1,radius=eps,lmin=2,vmin=2,do.plot=TRUE,distanceToBorder=2,save.RM=TRUE)
+rqa.analysis
+```
+
+We can interpret the statistics results from RQA as follows: [4]
+
+* Recurrence rate (REC): percentage of black points on the TRP.
+* Determinism (DET): percentage of recurrent points that form diagonal lines parallel to the main diagonal (LOI). Points on the LOI are, or are not, excluded from DET computation and only diagonals longer than or equal to a minimum length threshold, usually 2.
+* Ratio (RATIO): ratio of DET to REC. This can be helpful when discovering dynamic transitions.
+* Length of the longest diagonal line (Lmax). 
+* Inverse of Lmax (DIV). This quantity can be interpreted as an estimator of the MCLE.
+* Average length of the diagonal lines (Lmean). This is the average time in which two segments of the trajectory are within the same "tube" of phase space.
+* Shannon entropy of the diagonal line length distribution (ENTR): measures the complexity of structure in the system.
+* Trend (TREND): trend of the density of points depending on the distance to the LOI. TREND is employed to measure the degree of stationarity of the series. 
+* Laminarity (LAM): percentage of recurrent points that form vertical lines. This is similar to DET, but refers to vertical as oppose to diagonal structures.
+* Length of the longest vertical line (Vmax). This is similar to Lmax. Only diagonals longer than the threshold vmin are considered.
+* Average length of the vertical lines (Vmean), also called trapping time (TT).
+
+We can also compute the histogram of the length of the diagonals and the $\textit{recurrenceRate}$, or the number of recurrent points depending on the distance to the LOI.
+
+## Cross Recurrence
+
+To study the dynamics in two systems simultaneously, we can use CRPs (Cross Recurrence Plots) and CRQA (Cross Recurrence Quantification Analysis). We can rewrite the (insert equation number) as:
+
+$$CR_{i,j} = \Theta (\epsilon - |y_i-z_i|),\ i = 1,2,...,n,\ j=1,2,...m$$
+
+However, the name "cross recurrence plot" is really a misnomer.
+
+> "This occurrence of neighbours in both trajectories is not a 'recurrence' of states, hence the matrix CR does not represent recurrences but the conjunctures of states of both systems. Therefore, this representation is not really a 'cross recurrence plot'" - Marwan and Kurths (2004)
+
+The purpose of CRPs is to bring insight to possible connections and similarities between the dynamical behavior of both processes.
+The differences between CRPs and RPs, and the detailed explanation of the CRP's parameters go beyond the scope of this project.
+
+The following two code blocks are sourced from the CRAN manual in [12]:
+
+```{r}
+require(crqa)
+## run a simple crqa
+ts1 = c(0, 0, 1, 1, 0, 0, 2, 2, 1, 1)
+ts2 = c(1,1, 2, 2, 0, 0, 1, 2)
+delay = 1; embed = 1; rescale = 1; radius = 0.001;
+normalize = 0; mindiagline = 2; minvertline = 2;
+tw = 0;
+res = crqa(ts2, ts1, delay, embed, rescale, radius, normalize, mindiagline, minvertline, tw)
+par = list(unit = 2, labelx = "Time", labely = "Time", cols = "blue", pcex = 1)
+RP = res$RP
+plotRP(RP, par)
+```
+
+```{r}
+## simulate two dichotomous series
+tS = simts(0.25, 0.05, 0.2, 0.2, 0.25, 100)
+ts1 = tS[1,]; ts2 = tS[2,]
+## check data(crqa) for alternative data
+## (e.g., RDts1, RDts2)
+## initialize the parameters
+delay = 1; embed = 1; rescale = 1; radius = 0.001;
+normalize = 0; mindiagline = 2; minvertline = 2;
+tw = 0; whiteline = FALSE; recpt = FALSE; side = "both"
+checkl = list(do = FALSE, thrshd = 3, datatype = "categorical",
+pad = TRUE)
+ans = crqa(ts2, ts1, delay, embed, rescale, radius, normalize,
+mindiagline, minvertline, tw, whiteline, recpt, side, checkl)
+print(ans[1:9]) ## last argument of list is the cross-recurrence plot
+RP = ans$RP ## take out RP
+```
+
+
+## Networks
+
+Here, we will briefly introduce networks. Network science is a new field of applied math relying on theory from linear algebra, probability, and graph theory. We will only introduce the basics since network science is not the emphasis of this project. However, it is a very active area of research and an interesting field that is worth studying if one has the time to do so.
+
+Here are some examples of graph models, sourced from [13]:
+
+```{r}
+library(igraph)
+eg <- make_empty_graph(40)
+plot(eg, vertex.size=10, vertex.label=NA)
+
+fg <- make_full_graph(40)
+plot(fg, vertex.size=10, vertex.label=NA)
+
+st <- make_star(40)
+plot(st, vertex.size=10, vertex.label=NA) 
+
+tr <- make_tree(40, children = 3, mode = "undirected")
+plot(tr, vertex.size=10, vertex.label=NA)
+
+rn <- make_ring(40)
+plot(rn, vertex.size=10, vertex.label=NA)
+
+er <- sample_gnm(n=100, m=40) 
+plot(er, vertex.size=6, vertex.label=NA)
+
+sw <- sample_smallworld(dim=2, size=10, nei=1, p=0.1)
+plot(sw, vertex.size=6, vertex.label=NA, layout=layout_in_circle)
+
+ba <-  sample_pa(n=100, power=1, m=1,  directed=F)
+plot(ba, vertex.size=6, vertex.label=NA)
+```
+
+All of these networks can be analyzed with topological data analysis, however we will be interested in a particular type of network (the k-nearest neighbor network or k-nearest neighbor graph). This will be explored at the end of the project.

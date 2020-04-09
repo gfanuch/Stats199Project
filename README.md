@@ -1,2 +1,7 @@
-# Stats199Project
-My Stats 199 project that I completed in Fall 2019 at UCLA with help from my advisor, Michael Tsiang.
+# Stats199: Directed Research in Statistics
+
+Research topic: Nonlinear time series and topological data analysis (TDA)
+
+Advisor: Professor Michael Tsiang
+
+UCLA, Fall 2019

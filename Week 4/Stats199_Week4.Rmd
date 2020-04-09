@@ -1,0 +1,184 @@
+---
+title: "Stats199_Week4"
+author: "Gabriel Fanucchi"
+date: "10/25/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Week 4: Features of Chaos
+
+## Lyapunov Exponent and Maximal Characteristic Lyapunov Exponent
+
+For this section, we will examine the Lyapunov exponent, Poincare sections, and recurrence plots.
+
+(The source for this section, until the first code example, is [4])
+
+The Lyapunov exponent is the averaged exponent that determines a divergence rate. We know that close trajectories diverge exponentially quickly in a system that exhibits chaos. Therefore, it is often useful to find this because it can help us detect chaos.
+
+Let $\delta(x)$ be a small perturbation on the orbit at step t. At step t+1, we use a Taylor expansion and we have:
+$$x_{t+1}+\delta \cdot x_{t+1} = f(x_t + \delta*x_t) \approx Df(x_t) \cdot \delta(x_t) + f(x_t)$$
+where $Df(x_t) = J$, the Jacobian matrix.
+
+Now, consider the Oseledec matrix:
+
+$$O(x,k) = ([Df^k(x_t)]^T \cdot Df^k(x_t))^{1/2k}$$
+
+(where T is the transpose the of the matrix, and $Df^k(x_t)$ is the product of the Jacobian matrices along the trajectory)
+
+Furthermore, Oseledec's Theorem (1968) states that the convergence of $O(x,k)$ for $k$ approaching infinity to the limit $O(x)$ is guaranteed. 
+
+If we find the eigenvalues of the Oseledec matrix, they are the $\textit{local Lyapunov exponents}$ that measure how fast a perturbation in the point x moved down the trajectory spectrum. If we find the logarithms of the $r$ eigenvalues of $O(x)$, we get the $\textit{global Lyapunov exponents}$.
+
+$\textbf{Definition}$:The Maximum Characteristic Lyapunov Exponent (MCLE): [4]
+
+Let $x_0$ and $x_o\prime$ be two close initial conditions in an r-dimensional phase space. The $\textit{maximum Lyapunov exponent}$ is then defined as:
+
+$$\displaystyle \lambda = \lim_{n \to \infty} \lim_{\delta \to 0} \frac {1}{n} \cdot \ln{\dfrac {|x_n - x_n\prime|}{|x_o - x_0\prime|}}$$
+
+(where $\delta = |x_o - x_0\prime|$ is the perturbation in the initial condition and $||\cdot||$ is an appropriate norm.)
+
+The MCLE measures the average rate of divergence of close trajectories in the system. It determines a notion of predictability for a dynamical system. If the MCLE is positive, then the system is chaotic.
+
+The code below creates a graph of the evolution of the logarithm of the mean distance (y-axis) as a function at each time step (x-axis). In particular, it calculates the Lyapunov exponent for the Lorenz attractor. It is sourced from [10]:
+
+```{r}
+library(tseriesChaos)
+output <-lyap_k(lorenz.ts, m=3, d=2, s=200, t=40, ref=1700, k=2, eps=4)
+plot(output)
+lyap(output, 0.73, 2.47)
+```
+
+The following code creates an estimate for the MCLE after initially computing the average mutual information (AMI), which estimates the average mutual information index (AMI) of a given time series for a specified number of lags, and embedding dimension. The details underlying this computation are beyond the scope of this project. (Sourced from [11])
+
+```{r}
+library(nonlinearTseries)
+lor = lorenz(do.plot = F)
+lor.x = lor$x
+# tau-delay estimation based on the mutual information function
+tau.ami = timeLag(lor.x, technique = "ami", 
+                  lag.max = 100, do.plot = T)
+emb.dim = estimateEmbeddingDim(lor.x, time.lag = tau.ami,
+                               max.embedding.dim = 15)
+# get the sampling period of the lorenz simulation
+# computing the differences of time (all differences should be equal)
+sampling.period = diff(lor$time)[1]
+ml = maxLyapunov(lor.x, 
+                 sampling.period=0.01,
+                 min.embedding.dim = emb.dim,
+                 max.embedding.dim = emb.dim + 3,
+                 time.lag = tau.ami, 
+                 radius=1,
+                 max.time.steps=1000,
+                 do.plot=FALSE)
+plot(ml,type="l", xlim = c(0,8))
+
+ml.est = estimate(ml, regression.range = c(0,3),
+                  do.plot = T,type="l")
+
+cat("expected: 0.906  --- estimate: ", ml.est,"\n")
+```
+
+## Poincare Recurrence Theorem, the Poincare Section, and the Poincare Map
+
+> "In this case, neglecting some exceptional trajectories, the occurrence of which is infinitely improbable, it can be shown that the system will recur infinitely many times as close as one wishes to its initial state" - Henri Poincare 
+
+Henri Poincare was a leading pioneer in the study of dynamical systems. He knew about the important quality of "sensitive dependence on initial conditions". Although he did not live in the age of computers, he developed the method of plotting Poincare sections. These plots are important for the study of dynamical systems because they can tell us more information about the structure of an attractor.
+
+$\textbf{Theorem}$: (Poincare Recurrence Theorem)
+Certain systems will, after a sufficiently long but finite time, return to a state very close to (continuous systems) or exactly the same as (discrete systems), their initial state.
+
+A more intuitive description of a Poincare section is given by Steven Strogatz:[3]
+
+> "We slice an attractor with a plane, thereby exposing its cross section." 
+
+The following explanation and code are sourced from [9]:
+
+The Poincare map is another important tool in dynamics. The Poincare map is a classical dynamical system tool that replaces the n-th dimensional trajectory in the phase space with an (n-1)-th order discrete-time called the Poincare map. The points of the Poincare map are the intersection of the trajectories in the phase-space with a certain hyper-plane.
+
+```{r}
+library(nonlinearTseries)
+library(scatterplot3d)
+r=rossler(a = 0.2, b = 0.2, w = 5.7, start=c(-2, -10, 0.2),
+time=seq(0,300,by = 0.01), do.plot=FALSE)
+takens=cbind(r$x,r$y,r$z)
+# calculate poincare sections
+pm=poincareMap(takens = takens,normal.hiperplane.vector = c(0,1,0), 
+ hiperplane.point=c(0,0,0) )
+scatterplot3d(takens)
+```
+
+
+## Recurrence Plots
+
+### Setup
+
+(The source for the setup section is [4])
+
+$\textbf{Definition}$: A $\textit{recurrence}$ is a time the trajectory returns to a location it has visited before. 
+
+Let $y_t$ be the reconstructed trajectory in the m-dimensional phase space where d is a time delay:
+
+$$y_t = [s(t),s(t+d),s(t+2d),...,s(t+(m-1)d)]$$
+
+$t = 1,...,n$ 
+
+Each $y_t$ is a point in this space. Computing the distance $\delta_{ij}$ between two points at times t = i and t = j, we get:
+
+$\delta_{ij} = |y_i - y_j|$
+
+We have written the distance as a Euclidean distance, however this could be replaced with different distances as well. Some examples include: maximum, Manhattan, Canberra, binary, or Minkowski. 
+
+In the situation where we have a periodic time series, then this implies that $\delta_{ij} = 0$ when $|i - j| = kT$ ($k = 0, 1, 2,...$), where T is the period. 
+
+In the more general case, we want to find out when does $|y_i - y_j| < \epsilon$, where $\epsilon$ is a certain distance value. 
+
+Now, suppose the reconstructed time series is created by n vectors:
+
+$y_1, y_2, ..., y_n$
+
+We can construct a new space $i$ versus $j$, $i,j = 1,2,...,n$. When $\delta_{ij} = |y_i - y_j| < \epsilon$, the two points are considered recurrent points and we can plot a black dot at the point (i,j); otherwise, we plot a small white cirlce or nothing. Furthermore, we can visualize this information with a recurrence plot (RP). The RP shows how the trajectory repeats itself, in which it returns to visit the states already visited in the past (within a margin of tolerance $\epsilon$).
+
+$\textbf{Definition}$: A $\textit{recurrence plot}$ is a plot showing, for each moment i in time, the times at which a phase space trajectory visits roughly the same area in the phase space as at time j.
+
+$$R_{i,j} = \Theta(\epsilon \ - |y_i - \ y_j|), \ i,j = 1,2,...,n$$
+
+where $\Theta$ is the Heaviside function.
+
+Here we have a recurrence plot for a time series generated by the Lorenz attractor, without noise.
+
+```{r}
+recurr(lorenz.ts, m=3, d=2, start.time=15, end.time=20)
+```
+
+Here we have a random recurrence plot, sourced from [4]. In this recurrence plot, values are uniformly distributed in the plane $[0,1] \times [0,1]$:
+
+```{r}
+# Code 4.2 Random recurrence plot (random_RP.R)
+# series with uniformly distributed points
+
+x<- numeric()
+n<- 100         # length of the series
+eps<-  0.01     # do also eps<- 0.1, for comparison
+plot(0,0,type="n",xlab="i",ylab="j",xlim=c(0,n),ylim=c(0,n),
+     cex.lab=1.7,cex.axis=1.3)
+set.seed(1)     # seed of the sequence of (pseudo) random numbers
+x<- runif(n)    # n random deviates from the uniform distribution are generated
+for(i in 1:n){  # construction of the recurrence plot
+  for(j in 1:n){
+    distx<- abs(x[i]-x[j])    # Euclidean distance between x(i) and x(j)
+    if(distx<eps) points(i,j,pch=19,cex=1.0)
+  }
+}
+```
+
+### Periodic Behavior
+
+Periodic behavior is one example of simple behavior we can observe simply by examining a recurrence plot.
+
+For a periodic orbit, we can see uninterrupted parallel diagonal lines separated by a constant distance corresponding to the period T. Varying $\epsilon$ does not change the plots. However, if the series is chaotic, only black dots are plotted. Increaing $\epsilon$, the numbers of black dots and parallel lines also increase. 
+
+Next, we will look at recurrence quantification analysis, which is an important procedure that follows from recurrence plots.

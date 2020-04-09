@@ -1,0 +1,269 @@
+---
+title: "Stats199_Week6&7"
+author: "Gabriel Fanucchi"
+date: "11/8/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Weeks 6-7: Introduction to Topological Data Analysis
+
+## Simplices and Simplicial Complexes
+
+Our goal is to form a simplicial complex from a point cloud of data.
+
+$\textbf{Definition}$:(simplicial complex) [1]
+A $\textit{simplicial complex}$: is a pair of sets $(V,X)$ with the elements of $X$ being subsets of $V$ such that:
+$\forall v \in V,$ the singleton $v$ is in X and
+if $x$ is in $X$ and $y \subset x$, then $y$ is in X
+
+In other words, a simplicial complex is an object constructed from points, edges, triangular faces, etc.. [14]
+A simplex is an element of a simplicial complex which can be a triangle in any dimension.
+A point is a 0-dimensional simplex (0-simplex), an edge between two points is a 1-simplex, a triangular face is a 2-simplex, a solid tetrahedron is a 3-simplex, and so on. Higher dimensional simplices also exist. 
+
+For example, a 4-simplex has five vertices and the 1-d edges between the vertices, the 2-d faces between the edges, the 3-d solids between the edges, and the 4-d space between the 3-d solids are filled. [14]
+
+Generalizing this, we get a k-simplex formed from (k+1) vertices and is (k-1) dimensional
+If we glue many simplices together in such a way that the intersection between any two simplices is also a simplex, we get a simplicial complex. [14]
+
+The image below is sourced from [15]:
+
+![Simplex](/Users/gabriel/Desktop/Stats 199/Pictures TDA/Week 6/simplex.png)
+
+## Constructing a Simplicial Complex
+
+Homology is a useful topological concept that we are interested in when constructing simplicial complexes and performing persistent homology. Homology counts components, holes, and voids. Linear algebra will be indispensable for calculating homology.
+
+Here are the main steps in constructing a simplicial complex: [15]
+
+1. We start by choosing a distance, say d.
+
+2. Connect pairs of points that are no further apart than d.
+
+3. Fill in complete simplices to obtain the Rips complex.
+
+4. Homology detects the hole.
+
+The picture below is sourced from [15]:
+
+![Simplicial Complex](/Users/gabriel/Desktop/Stats 199/Pictures TDA/Week 6/simplicialcomplex.png)
+
+
+In step 1, the distance d is the distance of a ball surrounding an arbitrary point in the point cloud. We call this a ball with radius $\epsilon$, or $B_{\epsilon}(x)$. This notation refers to a ball of radius epsilon centered at x. Then d = $2\epsilon$.
+In step 3, for example, if we see 3 points connected by edges that form a triangle, we fill in the triangle with a 2-dimensional face. Any four points that are all pairwise connected get filled in with a 3-simplex, etc... The resulting structure we get is called a Vietoris-Rips complex, or Rips complex. Applying homology to the Rips complex tells us about the topological structure of the complex. [15]
+
+Here is the rigorous definition of a Vietoris-Rips complex (or Rips complex):
+
+$\textbf{Definition}$(The Vietoris-Rips complex):
+
+The $\textit{Vietoris-Rips complex}$ of a finite metric space $(X,d)$ is given by the following construction:
+
+Let $s \geq 0$, define the simplicial complex $VR_X(s)$ to have vertices the set X and declare a subset ${x_0,...,x_n}$ of distinct points in X to be a simplex if $d(x_i,x_j) \leq s \ \forall \ x_i,x_j$. 
+
+In other words, the construction can be described in the following way. Assume we have chosen a metric (which we will define below) for the data points and pick a nonzero number $s$. The vertex set is given by the data itself. For each pair of points x,y in the data set, we include the edge xy if the distance between them is at most $s:d(x,y) \leq \ s$. [17]
+
+Now we are faced with the issue of choosing the correct distance d. If d is too small, we detect noise. If d is too large, then the resulting Rips complex is too large. The idea is to consider all distances d. [15]
+
+Simplicial complexes are built from point clouds. A $\textit{point cloud}$ is a finite subset of $\mathbb{R^n}$ (for some n) together with the metric induced from the Euclidean distance. [1]
+
+Here are some basic examples of point clouds. Later, we will be interested in how we can compute the persistent homology of a time series after embedding the time series into a point cloud. This will be explained in the report in Week 10.
+
+## Examples of Point Clouds
+
+### Uniform Circle
+
+The following code is sourced from [19]
+
+```{r}
+library(TDA)
+
+X <- circleUnif(n = 400, r = 1)
+Xlim <- c(-1.6, 1.6)
+Ylim <- c(-1.7, 1.7)
+by <- 0.065
+Xseq <- seq(from = Xlim[1], to = Xlim[2], by = by)
+Yseq <- seq(from = Ylim[1], to = Ylim[2], by = by)
+Grid <- expand.grid(Xseq, Yseq)
+h <- 0.3
+KDE <- kde(X = X, Grid = Grid, h = h)
+plot(X)
+```
+
+### Torus
+
+The following code is sourced from [19]
+
+```{r}
+library(plot3D)
+library(rgl)
+
+torusSample <- torusUnif(n = 10000, a = 1.8, c = 5)
+if (!require(package = "rgl")) {
+install.packages(pkgs = "rgl")
+}
+#open3d()
+pdf("3d.pdf")
+plot(torusSample)
+dev.off()
+# try this in regular R
+```
+
+
+## More on Homology
+
+Computing homology is a very important aspect of TDA. We will not discuss the very theoretical aspects of Homology, which is usually first introduced in an introductory algebraic topology class.
+
+When analyzing our data with TDA, we are interested in finding topological invariants. Informally, they are values that do not change under deformation of the point cloud we are considering. Some examples of topological invariants are: the Euler characteristic, the fundamental group, homology groups, and betti numbers.
+
+To compute homology, we need Betti numbers. This section on Betti numbers is sourced from [14]
+
+$\textbf{Definition}$ (Betti numbers) - $\textit{Betti numbers}$ are sequences of numbers that indicate how many holes of each dimension an object has.
+
+The first Betti number, b1, counts the number of 1-d holes, or circular holes.
+The second Betti number counts the number of 2-d holes, and the third Betti number counts the number of 3-d holes, etc...
+We also have the zeroth Betti number which counts the number of connected components.
+
+For example, in a torus, we have:
+
+b1 = 2 (one along the longitude and one along the meridian). 
+
+b2 = 1
+
+b2 is equal to 1 because the torus occupies one connected space that fills it up in the inside.
+
+For a two-holed torus:
+
+b1 = 4
+
+b2 = 1
+
+Each hole in our simplicial complex appears at a particular value of d and disappears at another value of d. Let's say we have 4 points connected by vertices. Then, there exists some smallest distance, d1, which is just large enough for these four edges to appear and creates a hole in the middle. Now let's use these points again with a different distance, d2. This creates two triangles and then the hole we saw with d1 disappears. We can represent the persistence of this hole as a pair (d1,d2) and visualize this pair as an interval from d1 to d2. We can visualize this using barcode diagrams which are visualizations of homology. [15]
+
+The following picture is sourced from [14]
+
+![Distances](/Users/gabriel/Desktop/Stats 199/Pictures TDA/Week 6/distances.png)
+
+### Barcodes
+
+Barcode diagrams are collections of bars. Barcodes will be useful tools that tell us about what is happening with topological invariants in our simplicial complex. 
+
+The following picture is sourced from [14]
+
+![Barcode](/Users/gabriel/Desktop/Stats 199/Pictures TDA/Week 6/barcode.png)
+
+Let's interpret this simple barcode. The first two bars on the left appear for a short time due to sampling irregularities and noise. The longer bar represents a significant feature of the data. So, in general, short bars will represent noise and long bars will represent topological features of the point cloud we are studying. [15]
+
+Another thing to know about persistence barcodes is that they are stable with respect to perturbations of the data. This means that if you adjust the points a little bit, the barcode only changes a little bit as well. This stability is important for applications. [15] 
+
+Roughly, the left endpoint of an interval represents the birth of a feature, and its right endpoint represents the death of the same feature.[16] 
+
+(We will construct some barcodes in the next report.)
+
+## Persistence Diagrams
+
+```{r}
+# make TDAstats functions available
+library("TDAstats")
+
+# make relevant TDAstats datasets available
+data("unif2d")
+data("circle2d")
+# plot the points in unif2d
+plot(unif2d)
+
+# plot the points in circle2d
+plot(circle2d)
+
+# calculate persistent homology for unif2d
+phom.unif <- calculate_homology(unif2d)
+
+# calculate persistent homology for circle2d
+phom.circ <- calculate_homology(circle2d)
+
+# plot barcode for unif2d
+plot_barcode(phom.unif)
+
+# plot barcode for circle2d
+plot_barcode(phom.circ)
+```
+
+Here is an example of the VR complex sourced by [19]:
+
+```{r}
+library(TDA)
+Circle1 <- circleUnif(n = 60)
+Circle2 <- circleUnif(n = 60, r = 2) + 3
+Circles <- rbind(Circle1, Circle2)
+par(mfrow = c(1,1))
+plot(Circles, xlab="", ylab="")
+Diag <- ripsDiag(X = Circles, maxdimension = 1, maxscale = 5,
+library = "GUDHI", printProgress = FALSE)
+par(mfrow=c(1,2))
+plot(Circles, xlab="", ylab="")
+plot(Diag[["diagram"]])
+```
+
+## Other Combinatorial Objects
+
+Besides the VR complex, we can also look at a few other combinatorial objects that are useful in the study of TDA, such as the Cech complex, delta complex, filtered complex, and cubical complex. These can be explored in a future project and are beyond the scope of our current project because they rely on a background of algebraic topology.
+
+## Distances
+
+First, let's recall the definition of a metric space.
+
+$\textbf{Definition}$(Metric space) [1]
+A pair $(X,d)$ where X is a set and d is a function 
+
+$d:X \times X \rightarrow \mathbb{R}$
+
+attaining non-negative values is called a $\textit{metric space}$ if
+
+$d(x,y) = 0$ if and only if $x = y$
+
+$d(x,y) = d(y,x)$
+
+$d(x,z) \leq d(x,y) + d(y,x)$
+
+In this case, the function $d$ is referred to as the $\textit{metric}$ and the value $d(x,y)$ is called the $\textit{distance function}$ between x and y.
+
+One standard distance is the Euclidean distance, or L2 norm. However, in TDA, it is useful to use the bottleneck distance.
+
+$\textbf{Definition}$(bottleneck distance) [18]
+Suppose we have two persistence diagrams X, Y. Then the $\textit{bottleneck distance}$ is:
+
+$$\displaystyle W_{\infty} (X,Y) = \inf_{\eta:X\rightarrow Y} \sup_{x\in X} ||x - \eta (x)||_{\infty}$$
+
+$\eta$ ranges over all possible bijections results in this bottleneck distance.
+
+Similary, we can define the following metric which is the q-th Wasserstein metric:
+
+$\textbf{Definition}$(Wasserstein distance) [18]
+
+$$\displaystyle W_p(X,Y) = \left[\inf_{\eta:X\rightarrow Y} \sum_{x\in X}||x-\eta (x)||^p_{\infty}\right]^{1/p}$$
+for $p \in [1,\infty)$
+
+These distances are interesting because they are stable under perturbations, which is helpful when dealing with persistence homology.
+
+Each works by matching points of one diagram with points of another diagram while allowing the match to be done with the diagonal if necessary. The bottleneck distance is the maximum distance between any pair of points, and thus gives a measure for the most work that must be done to push  one  diagram  into the  configuration  of  the  other.  The Wasserstein  distance  sums  powers of  the distances  between  the  pairs;  unlike  the  bottleneck  distance,  it  takes  all  of  the  points  into  account, including the noisy diagonal points. The former is better for a simple test of proximity of diagrams; the latter is better when the noisy classes on the diagonal hold useful information about the data. [17]
+
+```{r}
+set.seed(1)
+library(TDA)
+Circle1 <- circleUnif(n = 60)
+Circle2 <- circleUnif(n = 60, r = 2) + 3
+Circles <- rbind(Circle1, Circle2)
+par(mfrow = c(1,1))
+plot(Circles, xlab="", ylab="") 
+Diag1 <- ripsDiag(X = Circle1, maxdimension = 1, maxscale = 5)
+Diag2 <- ripsDiag(X = Circle2, maxdimension = 1, maxscale = 5)
+print(bottleneck(Diag1 = Diag1[["diagram"]], Diag2 = Diag2[["diagram"]],
+dimension = 1))
+print(wasserstein(Diag1 = Diag1[["diagram"]], Diag2 = Diag2[["diagram"]],
+p = 2, dimension = 1))
+```
+
+The bottleneck distance computed from the two point clouds above is: 0.9982545
+The Wasserstein distance computed from the two point clouds above is: 1.499628

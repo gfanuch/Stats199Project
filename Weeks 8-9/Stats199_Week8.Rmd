@@ -1,0 +1,150 @@
+---
+title: "Stats199_Week8&9"
+author: "Gabriel Fanucchi"
+date: "11/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Weeks 8-9: Statistical Inference with TDA 
+
+## Hypothesis Testing with Persistence
+
+Suppose we have two point clouds, A and B. We can define a function T that returns the persistent homology of a point cloud, then given A and B, we can use a permutation test to perform statistical inference with the following null and alternative hypotheses:
+
+$H_0:T(A) = T(B)$
+
+$H_A:T(A) \ != T(B)$
+
+We want to use this hypothesis test when we want to see if two point clouds are the same or not.
+For example, let's compare the two point clouds unif3d and sphere3d:
+
+The following code is sourced from [20], but the difference is we try this for unif3d and sphere3d rather than unif2d and circl2d which are used in [20]:
+
+```{r}
+# ensure reproducible results
+set.seed(1)
+
+# load TDAstats
+library("TDAstats")
+
+# load relevant datasets for case study
+data("unif3d")
+data("sphere3d")
+
+# see if points in unif2d are actually distributed
+# within a unit square as described above
+plot(unif3d, xlab = "x", ylab = "y",
+     main = "Points in unif3d")
+
+# see if points in circle2d are actually distributed
+# on the circumference of a unit circle as described
+plot(sphere3d, xlab = "x", ylab = "y",
+     main = "Points in sphere3d")
+```
+
+Let's examine the barcodes. Since we have 3-dimensional data, we are primarily concerned with the presence of 0-cycles and 1-cycles. If points were connected to each other by edges in a distance-dependent manner, then the resulting graphs (assuming a “good” distance-dependence) for unif3d and sphere3d would have a single major component. Thus, we do not expect interesting behavior in the 0-cycles for either dataset. There also does not appear to be a prominent 1-cycle for the points in unif3d. However, the sphere3d dataset was intentionally designed to have a single prominent 1-cycle containing all the points in the dataset. Thus, when we plot the topological barcodes for sphere3d we should see a persistent 1-cycle that we do not see in the barcode for unif3d. [20] In other words, the barcode for the 1-cycle (blue) is longer in sphere3d.
+
+```{r}
+library("ggplot2")
+# calculate homologies for both datasets
+unif.phom <- calculate_homology(unif3d, dim = 1)
+circ.phom <- calculate_homology(sphere3d, dim = 1)
+
+
+# plot barcodes with labels and identical axes
+plot_barcode(unif.phom) +
+  ggtitle("Persistent Homology for unif3d") +
+  xlim(c(0, 2))
+plot_barcode(circ.phom) +
+  ggtitle("Persistent Homology for sphere3d") +
+  xlim(c(0, 2))
+
+```
+
+We can now run a permutation test on the two datasets to confirm that the persistent homologies of the two are, in fact, distinct. To do this, all we have to do is use the permutation_test function in TDAstats, and specify the number of iterations. Increasing the number of iterations improves how well the permutation test approximates the distribution of all point permutations between the two groups, but also comes at the cost of speed. Thus, a number of iterations that is sufficiently large to properly approximate the permutation distribution but not too large to be computed is required. Almost certainly, the ideal number of iterations will change as the available computing power changes. [20]
+
+```{r}
+# run permutation test
+perm.test <- permutation_test(unif3d, sphere3d, iterations = 100)
+
+# display p-value for 0-cycles
+print(perm.test[[1]]$pvalue)
+
+
+# display p-value for 1-cycles
+print(perm.test[[2]]$pvalue)
+
+# plot null distribution for 0-cycles as histogram
+# and add vertical line at Wasserstein distance
+# for original groups
+hist(perm.test[[1]]$permvals,
+     xlab = "Wasserstein distance",
+     ylab = "Counts",
+     main = "Null distribution for 0-cycles",
+     xlim = c(0, 5.5))
+abline(v = perm.test[[1]]$wasserstein)
+
+
+# plot null distribution for 1-cycles as histogram
+# and add vertical line at Wasserstein distance
+# for original groups
+hist(perm.test[[2]]$permvals,
+     xlab = "Wasserstein distance",
+     ylab = "Counts",
+     main = "Null distribution for 1-cycles",
+     xlim = c(0, 2))
+abline(v = perm.test[[2]]$wasserstein)
+
+```
+
+Given that both vertical lines are far right of the plotted histograms (corresponding to the p-values of zero), we can conclude safely that the permutation test has given us sufficient evidence to reject the null hypothesis. Thus, the persistent homologies of unif3d and sphere3d appear to be significantly different. [20]
+
+## Persistence Landscapes
+
+A persistence landscape is a useful tool when performing statistical inference with TDA.
+They are evaluated over a one-dimensional grid of points. This is indicated by tseq in the code below. If we set KK = 1, this means that we are looking for the 1st landscape function. [23]
+
+$\textbf{Definition}$ (Persistence landscape): [21]
+A $\textit{persistence landscape}$ is a function $\lambda: \mathbb{N} \times \mathbb{R} \rightarrow [-\infty ,\infty]$
+where $\lambda_k(x)$ = k-th largest value of $min(x-b_i,d_i-x)$
+
+The following code block is sourced from [23]:
+
+```{r}
+require(TDA)
+maxscale <- 5
+maxdimension <- 1 
+Circle1 <- circleUnif(60)
+Circle2 <- circleUnif(60, r = 2) + 3
+Circles <- rbind(Circle1, Circle2)
+
+Diag <- ripsDiag(X = Circles,
+                 maxdimension,
+                 maxscale,
+                 library = "GUDHI",
+                 printProgress = FALSE)
+tseq <- seq(0, maxscale, length = 1000)   #domain
+Land <- landscape(Diag[["diagram"]], dimension = 1, KK = 1, tseq)
+plot(tseq,Land)
+```
+
+This code block is sourced from [19]:
+
+```{r}
+tseq <- seq(from = 0, to = 5, length = 1000) #domain
+Land <- landscape(Diag = Diag[["diagram"]], dimension = 1, KK = 1, tseq = tseq)
+par(mfrow=c(1,1))
+plot(tseq, Land, type = "l", main = "1st Landscape, dim = 1", ylab = "",
+asp = 1, col = "red", lwd = 3)
+```
+
+
+This allows for a mean that is not in persistence diagrams. Another advantage of using persistence landscapes is that they also are invertible.[21]
+
+Here is a useful visualization that shows how we get a persistence landscape from a persistence diagram: [22]
+
+![Persistence Landscape](/Users/gabriel/Desktop/Stats 199/Pictures TDA/Week 9/landscape.png)
